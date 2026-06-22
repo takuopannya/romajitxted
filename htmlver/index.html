@@ -1,0 +1,1676 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RomajiTxted — ローマ字→日本語エディタ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Noto+Sans+JP:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface2: #21262d;
+      --border: #30363d;
+      --accent: #7c6af7;
+      --accent2: #58a6ff;
+      --text: #e6edf3;
+      --text-dim: #8b949e;
+      --text-dimmer: #484f58;
+      --success: #3fb950;
+      --warning: #d29922;
+      --danger: #f85149;
+      --converting: #7c6af7;
+      --radius: 10px;
+      --font-mono: 'Fira Code', 'Consolas', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', 'Noto Sans JP', sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── HEADER ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 18px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      gap: 12px;
+    }
+
+    .logo {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      color: var(--text);
+      white-space: nowrap;
+    }
+    .logo span { color: var(--accent); }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .tb-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      border-radius: 6px;
+      padding: 5px 11px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .tb-btn:hover { background: var(--border); color: var(--text); }
+    .tb-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    .font-size-ctrl {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 3px 8px;
+    }
+    .font-size-ctrl span { font-size: 12px; color: var(--text-dim); min-width: 28px; text-align: center; }
+    .font-size-ctrl button {
+      background: none; border: none; color: var(--text-dim);
+      cursor: pointer; font-size: 14px; padding: 0 2px; line-height: 1;
+      transition: color 0.15s;
+    }
+    .font-size-ctrl button:hover { color: var(--text); }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: var(--text-dim);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 10px;
+    }
+    .status-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--text-dimmer);
+      transition: background 0.3s;
+    }
+    .status-dot.converting { background: var(--accent); box-shadow: 0 0 6px var(--accent); animation: pulse 1s infinite; }
+    .status-dot.ok { background: var(--success); }
+    .status-dot.err { background: var(--danger); }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* ── SETTINGS MODAL ── */
+    .modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    .modal-backdrop.open { opacity: 1; pointer-events: all; }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 28px 32px;
+      width: 540px;
+      max-width: 95vw;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+      transform: translateY(8px);
+      transition: transform 0.2s;
+    }
+    .modal-backdrop.open .modal { transform: translateY(0); }
+
+    .modal h2 {
+      font-size: 16px; font-weight: 600; margin-bottom: 20px;
+      padding-bottom: 14px; border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-group label {
+      display: block; font-size: 12px; font-weight: 500;
+      color: var(--text-dim); margin-bottom: 6px; letter-spacing: 0.04em;
+    }
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 7px;
+      padding: 8px 12px;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+      border-color: var(--accent);
+    }
+    .form-group select option { background: var(--surface2); }
+    .form-group small {
+      display: block; font-size: 11px; color: var(--text-dimmer); margin-top: 4px;
+    }
+
+    /* ── SETTINGS TABS ── */
+    .tabs-header {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+    }
+    .tab-btn-settings {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: all 0.15s;
+    }
+    .tab-btn-settings:hover {
+      background: var(--surface2);
+      color: var(--text);
+    }
+    .tab-btn-settings.active {
+      background: var(--accent);
+      color: #fff;
+    }
+    .tab-content-settings {
+      display: none;
+    }
+    .tab-content-settings.active {
+      display: block;
+    }
+
+    .modal-actions {
+      display: flex; gap: 10px; justify-content: flex-end;
+      margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--border);
+    }
+
+    .btn-primary {
+      background: var(--accent); color: #fff;
+      border: none; border-radius: 7px;
+      padding: 8px 20px; font-size: 13px; font-weight: 500;
+      cursor: pointer; transition: opacity 0.15s;
+    }
+    .btn-primary:hover { opacity: 0.85; }
+
+    .btn-secondary {
+      background: var(--surface2); color: var(--text-dim);
+      border: 1px solid var(--border); border-radius: 7px;
+      padding: 8px 16px; font-size: 13px;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .btn-secondary:hover { color: var(--text); background: var(--border); }
+
+    /* ── EDITORS ── */
+    .editors {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .pane {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .pane + .pane {
+      border-left: 1px solid var(--border);
+    }
+
+    .pane-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .pane-title {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-dimmer);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .pane-actions {
+      display: flex; gap: 6px;
+    }
+
+    .icon-btn {
+      background: none; border: none;
+      color: var(--text-dimmer); cursor: pointer;
+      padding: 3px 6px; border-radius: 4px;
+      font-size: 13px; transition: all 0.15s;
+      display: flex; align-items: center; gap: 3px;
+    }
+    .icon-btn:hover { color: var(--text); background: var(--surface2); }
+
+    textarea {
+      flex: 1;
+      background: var(--bg);
+      color: var(--text);
+      border: none;
+      outline: none;
+      padding: 20px 24px;
+      font-size: 15px;
+      font-family: 'Noto Sans JP', 'Inter', sans-serif;
+      line-height: 1.85;
+      resize: none;
+      width: 100%;
+      transition: font-size 0.15s;
+    }
+
+    textarea::placeholder { color: var(--text-dimmer); }
+
+    #outputArea {
+      cursor: default;
+      caret-color: transparent;
+    }
+    #outputArea.editable { cursor: text; caret-color: var(--text); }
+
+    /* スクロールバー */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-dimmer); }
+
+    /* ── STATUSBAR ── */
+    footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px 16px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+      font-size: 11px;
+      color: var(--text-dimmer);
+    }
+
+    .footer-left, .footer-right {
+      display: flex; align-items: center; gap: 16px;
+    }
+
+    /* ── TOAST ── */
+    #toast {
+      position: fixed;
+      bottom: 40px; left: 50%; transform: translateX(-50%) translateY(10px);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 9px 18px;
+      font-size: 13px;
+      opacity: 0;
+      transition: all 0.25s;
+      pointer-events: none;
+      z-index: 200;
+      white-space: nowrap;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ── DIVIDER DRAG ── */
+    .divider {
+      width: 4px;
+      background: var(--border);
+      cursor: col-resize;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    .divider:hover { background: var(--accent); }
+
+    /* ── VERTICAL LAYOUT ── */
+    .editors.vertical {
+      flex-direction: column;
+    }
+    .editors.vertical .pane + .pane {
+      border-left: none;
+      border-top: 1px solid var(--border);
+    }
+    .editors.vertical .divider {
+      width: 100%;
+      height: 4px;
+      cursor: row-resize;
+    }
+
+    .editors.vertical-reverse {
+      flex-direction: column-reverse;
+    }
+    .editors.vertical-reverse .pane + .pane {
+      border-left: none;
+      border-bottom: 1px solid var(--border);
+    }
+    .editors.vertical-reverse .divider {
+      width: 100%;
+      height: 4px;
+      cursor: row-resize;
+    }
+
+    .editors.horizontal-reverse {
+      flex-direction: row-reverse;
+    }
+    .editors.horizontal-reverse .pane + .pane {
+      border-left: none;
+      border-right: 1px solid var(--border);
+    }
+    .editors.horizontal-reverse .divider {
+      width: 4px;
+      background: var(--border);
+      cursor: col-resize;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    .editors.horizontal-reverse .divider:hover { background: var(--accent); }
+
+    /* ── HISTORY PANEL ── */
+    .history-panel {
+      position: fixed;
+      top: 0; right: 0; bottom: 0;
+      width: 300px;
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      transform: translateX(100%);
+      transition: transform 0.25s ease;
+      z-index: 50;
+      display: flex;
+      flex-direction: column;
+    }
+    .history-panel.open { transform: translateX(0); }
+
+    .history-header {
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .history-header h3 { font-size: 13px; font-weight: 500; }
+
+    .history-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+    }
+
+    .history-item {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .history-item:hover { border-color: var(--accent); }
+    .history-item .hi-jp { font-size: 13px; color: var(--text); margin-bottom: 4px; line-height: 1.5; }
+    .history-item .hi-rom { font-size: 10px; color: var(--text-dimmer); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .history-item .hi-time { font-size: 10px; color: var(--text-dimmer); margin-top: 4px; }
+  </style>
+</head>
+<body>
+
+<!-- SETTINGS MODAL -->
+<div class="modal-backdrop" id="settingsModal">
+  <div class="modal">
+    <h2>⚙ 設定</h2>
+    <div class="tabs-header">
+      <button class="tab-btn-settings active" onclick="switchSettingsTab('llmTab', this)">LLM設定</button>
+      <button class="tab-btn-settings" onclick="switchSettingsTab('generalTab', this)">一般設定</button>
+    </div>
+
+    <!-- LLMタブ -->
+    <div id="llmTab" class="tab-content-settings active">
+      <div class="form-group">
+        <label>LLM プロバイダー</label>
+        <select id="providerSelect" onchange="onProviderChange()">
+          <option value="openai">OpenAI</option>
+          <option value="anthropic">Anthropic (Claude)</option>
+          <option value="google">Google (Gemini)</option>
+          <option value="ollama">Ollama (ローカル)</option>
+        </select>
+      </div>
+
+      <div class="form-group" id="apiKeyGroup">
+        <label>API キー</label>
+        <input type="password" id="apiKeyInput" placeholder="sk-..." autocomplete="off">
+        <small>ローカルの localStorage に保存されます（暗号化推奨）</small>
+      </div>
+
+      <div class="form-group" id="masterPasswordGroup">
+        <label>マスターパスワード</label>
+        <input type="password" id="masterPasswordInput" placeholder="APIキー暗号化用のパスワード" autocomplete="off">
+        <small>APIキーを安全に保存するためのパスワード（必須）</small>
+      </div>
+
+      <div class="form-group" id="ollamaUrlGroup" style="display:none">
+        <label>Ollama エンドポイント</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="text" id="ollamaUrl" value="http://localhost:11434" style="flex:1">
+          <button class="btn-secondary" id="fetchOllamaBtn" onclick="fetchOllamaModels()" style="white-space:nowrap;padding:8px 12px;font-size:12px">取得</button>
+        </div>
+      </div>
+
+      <div class="form-group" id="modelGroup">
+        <label style="display:flex;justify-content:space-between;align-items:center">
+          <span>モデル</span>
+          <button class="icon-btn" id="fetchModelsBtn" onclick="fetchCloudModels()" style="font-size:11px;padding:2px 8px" title="APIからモデル一覧を取得">🔄 一覧を取得</button>
+        </label>
+        <select id="modelSelect" style="margin-bottom:6px"></select>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="text" id="modelCustom" placeholder="カスタムモデル名を直接入力" style="flex:1;font-size:12px">
+        </div>
+        <small id="modelHint" style="margin-top:4px"></small>
+      </div>
+
+      <div class="form-group">
+        <label>ユーザー辞書（固有名詞・単語の固定）</label>
+        <textarea id="userDictionaryInput" rows="5" placeholder="例:
+romajitxted: RomajiTxted
+antigravity: Antigravity
+shin1: しんいち" style="resize:vertical; font-size:12px; line-height:1.6"></textarea>
+        <small>「ローマ字表記: 変換後の日本語」を1行に1組ずつ記述します。</small>
+      </div>
+
+      <div class="form-group">
+        <label>システムプロンプト（変換指示）</label>
+        <textarea id="systemPromptInput" rows="10" style="resize:vertical; font-size:12px; line-height:1.6">あなたはローマ字入力を日本語テキストに変換する「入力補助装置」です。IMEの代替として機能します。
+
+【目的】
+ユーザーはローマ字で入力することで、思考の流れを妨げずに日本語テキストを作成しています。あなたの役割は、ローマ字を正確に日本語へ復元することだけです。
+
+【役割の定義】
+あなたは「文章を作る存在」ではなく「ユーザーが打った文字列を正しい日本語に復元する装置」です。ユーザーの入力がすべてであり、あなたが内容を判断・改変する権限はありません。
+
+【変換ルール】
+1. ローマ字を対応する日本語（漢字・ひらがな・カタカナ混じり文）に変換する
+2. 打ち間違い（タイポ）は文脈から最も近い意図を推測し修正する
+   - 隣接キーの誤打（例: tomodavhi → tomodachi → 友達）
+   - 文字の欠落（例: ohyougozaimsu → ohayougozaimasu → おはようございます）
+   - 文字の入れ替わり（例: sakuan → sakana → 魚）
+   - 余分な文字の混入（例: waratashi → watashi → 私）
+3. 変換後の日本語のみを出力する。説明・注釈・補足は一切付けない
+4. 入力にある句読点や改行はそのまま保持する。ユーザーが打っていない句読点を追加しない
+
+【最重要：意訳の絶対禁止】
+タイポの修正と意訳は全く異なる行為です。
+- タイポ修正 = ユーザーが意図したキー入力を復元する（許可）
+- 意訳 = ユーザーの文意を「より良い表現」に変える（絶対禁止）
+
+以下を厳守してください：
+- ユーザーの言い回しを「より自然な表現」に変えてはならない
+- ユーザーが書いていない情報・単語・文を追加してはならない
+- ユーザーが書いた意味のある単語・文を省略してはならない
+- ユーザーが並べた語順を入れ替えてはならない
+- 敬体（です・ます）を常体（だ・である）に変えたり、その逆も禁止
+- 文章の意味を推測して「こう言いたいのだろう」と内容を補わない
+- ユーザーが打っていない句読点を追加しない
+
+【判断基準】
+迷った場合は「ユーザーの入力に最も忠実な変換」を選ぶ。自然さより忠実さを優先する。</textarea>
+      </div>
+    </div>
+
+    <!-- 一般タブ -->
+    <div id="generalTab" class="tab-content-settings">
+      <div class="form-group">
+        <label>レイアウト</label>
+        <select id="layoutSelect">
+          <option value="horizontal">左右（左に入力、右に出力）</option>
+          <option value="horizontal-reverse">左右反転（右に入力、左に出力）</option>
+          <option value="vertical">上下（上に入力、下に出力）</option>
+          <option value="vertical-reverse">上下反転（下に入力、上に出力）</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeSettings()">キャンセル</button>
+      <button class="btn-primary" onclick="saveSettings()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- MASTER PASSWORD DECRYPT DIALOG -->
+<div class="modal-backdrop" id="passwordModal">
+  <div class="modal" style="max-width:400px">
+    <h2>🔑 マスターパスワード入力</h2>
+    <p style="font-size:13px;color:var(--text-dim);margin: 10px 0 18px 0;line-height:1.6">
+      暗号化されたAPIキーを復号するためにマスターパスワードを入力してください。
+    </p>
+    <div class="form-group">
+      <input type="password" id="decryptPasswordInput" placeholder="パスワードを入力" autocomplete="off">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="submitDecryptPassword()">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- OLLAMA GUIDE DIALOG -->
+<div class="modal-backdrop" id="ollamaDialog">
+  <div class="modal" style="max-width:460px">
+    <h2>🦙 <span id="ollamaDialogTitle">Ollamaが起動していません</span></h2>
+
+    <p id="ollamaDialogDetail" style="font-size:13px;color:var(--text-dim);line-height:1.7;white-space:pre-line;margin-bottom:18px"></p>
+
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;font-family:var(--font-mono);font-size:13px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <code id="ollamaCmd1" style="color:var(--accent2)"></code>
+        <button class="icon-btn" onclick="copyCmd('ollamaCmd1')" style="font-size:11px">📋</button>
+      </div>
+      <div id="ollamaCmd2Row" style="display:flex;align-items:center;justify-content:space-between">
+        <code id="ollamaCmd2" style="color:var(--accent2)"></code>
+        <button class="icon-btn" onclick="copyCmd('ollamaCmd2')" style="font-size:11px">📋</button>
+      </div>
+    </div>
+
+    <p style="font-size:11px;color:var(--text-dimmer);margin-top:12px">
+      ※ CORS対応のため <code style="font-size:11px;color:var(--text-dim)">OLLAMA_ORIGINS=*</code> を環境変数に設定してから起動してください
+    </p>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeOllamaDialog()">閉じる</button>
+      <button class="btn-primary" onclick="retryOllamaFetch()">🔄 再接続</button>
+    </div>
+  </div>
+</div>
+
+<!-- HISTORY PANEL -->
+<div class="history-panel" id="historyPanel">
+  <div class="history-header">
+    <h3>変換履歴</h3>
+    <button class="icon-btn" onclick="toggleHistory()">✕</button>
+  </div>
+  <div class="history-list" id="historyList"></div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo"><span>Roma</span>jiTxted</div>
+
+  <div class="toolbar">
+    <div class="font-size-ctrl">
+      <button onclick="changeFontSize(-1)" title="縮小">−</button>
+      <span id="fontSizeLabel">15px</span>
+      <button onclick="changeFontSize(1)" title="拡大">＋</button>
+    </div>
+    <button class="tb-btn" id="wrapBtn" onclick="toggleWordWrap()">折り返し</button>
+    <button class="tb-btn" onclick="toggleHistory()">履歴</button>
+    <button class="tb-btn" onclick="openSettings()">⚙ 設定</button>
+  </div>
+
+  <div class="status-badge">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">待機中</span>
+  </div>
+</header>
+
+<!-- MAIN EDITORS -->
+<div class="editors" id="editors">
+  <!-- 入力ペイン -->
+  <div class="pane" id="leftPane">
+    <div class="pane-header">
+      <span class="pane-title">入力 — ローマ字</span>
+      <div class="pane-actions">
+        <button class="icon-btn" onclick="convertNow()" title="今すぐ変換 (Enter)">⚡ 変換</button>
+        <button class="icon-btn" onclick="clearInput()" title="入力をクリア">🗑</button>
+      </div>
+    </div>
+    <textarea
+      id="inputArea"
+      placeholder="ローマ字で入力... (Enter で変換)"
+      spellcheck="false"
+    ></textarea>
+  </div>
+
+  <!-- ドラッグ分割線 -->
+  <div class="divider" id="divider"></div>
+
+  <!-- 出力ペイン -->
+  <div class="pane" id="rightPane">
+    <div class="pane-header">
+      <span class="pane-title">出力 — 日本語</span>
+      <div class="pane-actions">
+        <button class="icon-btn" onclick="copyOutput()" title="コピー">📋 コピー</button>
+        <button class="icon-btn" onclick="saveOutput()" title="ファイル保存">💾 保存</button>
+        <button class="icon-btn" id="editOutputBtn" onclick="toggleOutputEdit()" title="編集モード">✏ 編集</button>
+      </div>
+    </div>
+    <textarea
+      id="outputArea"
+      placeholder="変換結果がここに表示されます"
+      readonly
+    ></textarea>
+  </div>
+</div>
+
+<!-- STATUSBAR -->
+<footer>
+  <div class="footer-left">
+    <span id="inputStats">入力: 0文字</span>
+    <span id="outputStats">出力: 0文字</span>
+    <span id="convCount">変換: 0回</span>
+  </div>
+  <div class="footer-right">
+    <span id="providerLabel">—</span>
+    <span id="modelLabel">—</span>
+  </div>
+</footer>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+// ───────────────────────────────────────────────
+// STATE
+// ───────────────────────────────────────────────
+let fontSize = 15;
+let wordWrap = true;
+let outputEditable = false;
+let conversionCount = 0;
+let historyOpen = false;
+let conversionHistory = [];
+let isConverting = false;
+
+const DEFAULT_SYSTEM_PROMPT = document.getElementById('systemPromptInput').value;
+
+const PROVIDER_DEFAULTS = {
+  openai: {
+    model: 'gpt-4o-mini',
+    hint: 'APIキーを入力後「一覧を取得」で最新リストを更新できます',
+    models: [
+      { id: 'gpt-4.1',             label: 'GPT-4.1' },
+      { id: 'gpt-4.1-mini',        label: 'GPT-4.1 mini' },
+      { id: 'gpt-4.1-nano',        label: 'GPT-4.1 nano' },
+      { id: 'gpt-4o',              label: 'GPT-4o' },
+      { id: 'gpt-4o-mini',         label: 'GPT-4o mini' },
+      { id: 'gpt-4-turbo',         label: 'GPT-4 Turbo' },
+      { id: 'o4-mini',             label: 'o4-mini (reasoning)' },
+      { id: 'o3',                  label: 'o3 (reasoning)' },
+      { id: 'o3-mini',             label: 'o3-mini (reasoning)' },
+      { id: 'o1',                  label: 'o1 (reasoning)' },
+      { id: 'o1-mini',             label: 'o1-mini (reasoning)' },
+      { id: 'gpt-3.5-turbo',       label: 'GPT-3.5 Turbo' },
+    ],
+  },
+  anthropic: {
+    model: 'claude-3-5-haiku-20241022',
+    hint: 'Anthropic APIはモデル一覧エンドポイント非公開のためリストは固定です',
+    models: [
+      { id: 'claude-opus-4-5',              label: 'Claude Opus 4.5' },
+      { id: 'claude-sonnet-4-5',            label: 'Claude Sonnet 4.5' },
+      { id: 'claude-haiku-4-5',             label: 'Claude Haiku 4.5' },
+      { id: 'claude-opus-4-0',              label: 'Claude Opus 4' },
+      { id: 'claude-sonnet-4-0',            label: 'Claude Sonnet 4' },
+      { id: 'claude-3-7-sonnet-20250219',   label: 'Claude 3.7 Sonnet' },
+      { id: 'claude-3-5-sonnet-20241022',   label: 'Claude 3.5 Sonnet' },
+      { id: 'claude-3-5-haiku-20241022',    label: 'Claude 3.5 Haiku' },
+      { id: 'claude-3-opus-20240229',       label: 'Claude 3 Opus' },
+      { id: 'claude-3-haiku-20240307',      label: 'Claude 3 Haiku' },
+    ],
+  },
+  google: {
+    model: 'gemini-2.0-flash',
+    hint: 'APIキーを入力後「一覧を取得」で最新リストを更新できます',
+    models: [
+      { id: 'gemini-2.5-pro',          label: 'Gemini 2.5 Pro' },
+      { id: 'gemini-2.5-flash',        label: 'Gemini 2.5 Flash' },
+      { id: 'gemini-2.5-flash-lite',   label: 'Gemini 2.5 Flash-Lite' },
+      { id: 'gemini-2.0-flash',        label: 'Gemini 2.0 Flash' },
+      { id: 'gemini-2.0-flash-lite',   label: 'Gemini 2.0 Flash-Lite' },
+      { id: 'gemini-1.5-pro',          label: 'Gemini 1.5 Pro' },
+      { id: 'gemini-1.5-flash',        label: 'Gemini 1.5 Flash' },
+      { id: 'gemini-1.5-flash-8b',     label: 'Gemini 1.5 Flash-8B' },
+    ],
+  },
+  ollama: {
+    model: 'llama3',
+    hint: 'エンドポイントを入力後「取得」でインストール済みモデルを取得します',
+    models: [],
+  },
+};
+
+// ───────────────────────────────────────────────
+// SETTINGS
+// ───────────────────────────────────────────────
+// 現在のプロバイダーのモデルリスト（動的取得分も含む）
+let currentModelList = {};
+
+function getEffectiveModel() {
+  // カスタム入力が優先、なければselectの値
+  const custom = document.getElementById('modelCustom').value.trim();
+  return custom || document.getElementById('modelSelect').value || PROVIDER_DEFAULTS.openai.model;
+}
+
+function rebuildModelSelect(provider, savedModel) {
+  const sel = document.getElementById('modelSelect');
+  const d = PROVIDER_DEFAULTS[provider];
+  const list = currentModelList[provider] || d.models;
+
+  sel.innerHTML = '';
+  list.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m.id;
+    opt.textContent = m.label || m.id;
+    sel.appendChild(opt);
+  });
+
+  // 保存されたモデルがリストにあればそれを選択、なければデフォルト
+  const target = savedModel || d.model;
+  if ([...sel.options].some(o => o.value === target)) {
+    sel.value = target;
+  } else if (savedModel) {
+    // リストにないカスタムモデル → customフィールドに表示
+    document.getElementById('modelCustom').value = savedModel;
+  }
+}
+
+function applyLayout(layout) {
+  const editors = document.getElementById('editors');
+  const leftPane = document.getElementById('leftPane');
+  
+  // クラスのクリア
+  editors.classList.remove('vertical', 'vertical-reverse', 'horizontal-reverse');
+  
+  if (layout === 'vertical') {
+    editors.classList.add('vertical');
+    leftPane.style.width = '';
+    leftPane.style.height = '50%';
+    leftPane.style.flex = 'none';
+  } else if (layout === 'vertical-reverse') {
+    editors.classList.add('vertical-reverse');
+    leftPane.style.width = '';
+    leftPane.style.height = '50%';
+    leftPane.style.flex = 'none';
+  } else if (layout === 'horizontal-reverse') {
+    editors.classList.add('horizontal-reverse');
+    leftPane.style.height = '';
+    leftPane.style.width = '50%';
+    leftPane.style.flex = 'none';
+  } else {
+    // horizontal (default)
+    leftPane.style.height = '';
+    leftPane.style.width = '50%';
+    leftPane.style.flex = 'none';
+  }
+}
+
+function loadSettings() {
+  const s = JSON.parse(localStorage.getItem('romajitxted_settings') || '{}');
+  document.getElementById('providerSelect').value = s.provider || 'openai';
+  
+  if (s.isEncrypted) {
+    document.getElementById('apiKeyInput').placeholder = '•••••••• (暗号化保存済み)';
+    document.getElementById('apiKeyInput').value = decryptedApiKey || '';
+  } else {
+    document.getElementById('apiKeyInput').placeholder = 'sk-...';
+    document.getElementById('apiKeyInput').value = s.apiKey || '';
+  }
+  document.getElementById('masterPasswordInput').value = '';
+  
+  document.getElementById('ollamaUrl').value = s.ollamaUrl || 'http://localhost:11434';
+  document.getElementById('layoutSelect').value = s.layout || 'horizontal';
+  document.getElementById('userDictionaryInput').value = s.userDictionary || '';
+  document.getElementById('systemPromptInput').value = s.systemPrompt || DEFAULT_SYSTEM_PROMPT;
+  document.getElementById('modelCustom').value = '';
+  onProviderChange(s.model);
+  updateFooterLabels();
+  applyLayout(s.layout || 'horizontal');
+}
+
+async function saveSettings() {
+  const provider = document.getElementById('providerSelect').value;
+  const rawApiKey = document.getElementById('apiKeyInput').value.trim();
+  const masterPassword = document.getElementById('masterPasswordInput').value;
+  const model = getEffectiveModel();
+  const ollamaUrl = document.getElementById('ollamaUrl').value.trim();
+  const layout = document.getElementById('layoutSelect').value;
+  const userDictionary = document.getElementById('userDictionaryInput').value;
+  const systemPrompt = document.getElementById('systemPromptInput').value;
+
+  const s = {
+    provider,
+    model,
+    ollamaUrl,
+    layout,
+    userDictionary,
+    systemPrompt,
+  };
+
+  const isOllama = provider === 'ollama';
+
+  if (!isOllama) {
+    const isPlaceholder = document.getElementById('apiKeyInput').placeholder.includes('暗号化保存済み');
+    const hasExisting = getSettings().apiKey;
+
+    if (rawApiKey) {
+      if (isPlaceholder && rawApiKey === decryptedApiKey) {
+        // すでにメモリ上にある復号済みキーと同じ値が入力されている、またはそのままの場合
+        const existing = getSettings();
+        s.apiKey = existing.apiKey;
+        s.isEncrypted = existing.isEncrypted;
+      } else {
+        // 新しいキーの入力
+        if (!masterPassword) {
+          showToast('APIキー暗号化のため、マスターパスワードを入力してください');
+          return;
+        }
+        try {
+          const encrypted = await encryptData(rawApiKey, masterPassword);
+          s.apiKey = encrypted;
+          s.isEncrypted = true;
+          decryptedApiKey = rawApiKey;
+        } catch (e) {
+          showToast('暗号化失敗: ' + e.message);
+          return;
+        }
+      }
+    } else {
+      // 入力が空の場合
+      if (isPlaceholder && hasExisting && !document.getElementById('apiKeyInput').value) {
+        // ユーザーが意図的に入力欄を空にしたのか、単に変更しなかったのか。
+        // 設定画面を開いたとき、decryptedApiKeyが空なら入力欄は空になる。
+        // その状態で変更せずに保存した場合、既存のキーを維持する必要がある。
+        if (!decryptedApiKey) {
+          const existing = getSettings();
+          s.apiKey = existing.apiKey;
+          s.isEncrypted = existing.isEncrypted;
+        } else {
+          // メモリ上には復号キーがあるが、入力欄が空にされた場合＝削除されたとみなす
+          s.apiKey = '';
+          s.isEncrypted = false;
+          decryptedApiKey = '';
+        }
+      } else {
+        s.apiKey = '';
+        s.isEncrypted = false;
+        decryptedApiKey = '';
+      }
+    }
+  } else {
+    s.apiKey = '';
+    s.isEncrypted = false;
+    decryptedApiKey = '';
+  }
+
+  localStorage.setItem('romajitxted_settings', JSON.stringify(s));
+  applyLayout(layout);
+  closeSettings();
+  updateFooterLabels();
+  showToast('設定を保存しました');
+}
+
+function getSettings() {
+  return JSON.parse(localStorage.getItem('romajitxted_settings') || '{}');
+}
+
+function onProviderChange(savedModel) {
+  const p = document.getElementById('providerSelect').value;
+  const d = PROVIDER_DEFAULTS[p];
+  const isOllama = p === 'ollama';
+
+  document.getElementById('apiKeyGroup').style.display = isOllama ? 'none' : '';
+  document.getElementById('ollamaUrlGroup').style.display = isOllama ? '' : 'none';
+  // Ollamaはollamaフォームのボタンがfetchを担うのでfetchModelsBtnは非Ollama向け
+  document.getElementById('fetchModelsBtn').style.display = isOllama ? 'none' : '';
+
+  document.getElementById('modelCustom').value = '';
+  rebuildModelSelect(p, savedModel);
+  document.getElementById('modelHint').textContent = d.hint;
+
+  // Ollama選択時は自動でモデル一覧を取得試行
+  if (isOllama) {
+    fetchOllamaModels({ silent: true });
+  }
+}
+
+// ───────────────────────────────────────────────
+// MODEL LIST FETCH
+// ───────────────────────────────────────────────
+// OLLAMA: 自動取得 & 未起動ガイド
+// ───────────────────────────────────────────────
+async function fetchOllamaModels({ silent = false } = {}) {
+  const ollamaUrl = document.getElementById('ollamaUrl').value.trim();
+  const btn = document.getElementById('fetchOllamaBtn');
+  const base = ollamaUrl.replace(/\/$/, '');
+
+  if (!silent) {
+    btn.textContent = '取得中...';
+    btn.disabled = true;
+  }
+
+  try {
+    const res = await fetch(`${base}/api/tags`, { signal: AbortSignal.timeout(4000) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const models = (data.models || []).map(m => ({ id: m.name, label: m.name }));
+
+    if (!models.length) {
+      showOllamaNotRunning(base, 'nomodels');
+      return;
+    }
+
+    currentModelList['ollama'] = models;
+    const saved = getEffectiveModel();
+    rebuildModelSelect('ollama', saved);
+    if (!silent) showToast(`${models.length}件のモデルを取得しました`);
+    else         showToast(`Ollama: ${models.length}件のモデルを検出`);
+  } catch (e) {
+    // 接続失敗 = Ollama未起動
+    showOllamaNotRunning(base, 'notrunning');
+  } finally {
+    if (!silent) {
+      btn.textContent = '取得';
+      btn.disabled = false;
+    }
+  }
+}
+
+function showOllamaNotRunning(base, reason) {
+  const isNoModel = reason === 'nomodels';
+  const title  = isNoModel ? 'モデルが見つかりません' : 'Ollamaが起動していません';
+  const detail = isNoModel
+    ? `Ollamaは起動していますが、モデルがインストールされていません。\n以下のコマンドでモデルをインストールしてください。`
+    : `Ollamaサーバー (${base}) に接続できませんでした。\n以下のコマンドでOllamaを起動してください。`;
+  const cmd1 = isNoModel ? 'ollama pull llama3' : 'ollama serve';
+  const cmd2 = isNoModel ? 'ollama pull gemma3' : null;
+
+  document.getElementById('ollamaDialogTitle').textContent  = title;
+  document.getElementById('ollamaDialogDetail').textContent = detail;
+  document.getElementById('ollamaCmd1').textContent = cmd1;
+  document.getElementById('ollamaCmd2Row').style.display = cmd2 ? '' : 'none';
+  if (cmd2) document.getElementById('ollamaCmd2').textContent = cmd2;
+  document.getElementById('ollamaDialog').classList.add('open');
+}
+
+function closeOllamaDialog() {
+  document.getElementById('ollamaDialog').classList.remove('open');
+}
+
+async function retryOllamaFetch() {
+  closeOllamaDialog();
+  await fetchOllamaModels({ silent: false });
+}
+
+// OpenAI / Google のモデル一覧をAPIから取得
+async function fetchCloudModels() {
+  const p = document.getElementById('providerSelect').value;
+  const btn = document.getElementById('fetchModelsBtn');
+
+  if (p === 'anthropic') {
+    showToast('Anthropic APIはモデル一覧非公開のため固定リストを使用します');
+    currentModelList['anthropic'] = PROVIDER_DEFAULTS.anthropic.models;
+    rebuildModelSelect('anthropic', getEffectiveModel());
+    return;
+  }
+
+  let apiKey = document.getElementById('apiKeyInput').value.trim();
+  if (!apiKey) {
+    if (decryptedApiKey) {
+      apiKey = decryptedApiKey;
+    } else {
+      apiKey = await getApiKey();
+    }
+  }
+
+  if (!apiKey) { showToast('APIキーを入力してください'); return; }
+
+  btn.textContent = '取得中...';
+  btn.disabled = true;
+
+  try {
+    let models = [];
+    if (p === 'openai') {
+      const res = await fetch('https://api.openai.com/v1/models', {
+        headers: { 'Authorization': `Bearer ${apiKey}` },
+      });
+      if (!res.ok) throw new Error(`OpenAI ${res.status}`);
+      const data = await res.json();
+      const chatModels = data.data
+        .filter(m => /^(gpt-|o[0-9]|chatgpt)/.test(m.id)
+          && !m.id.includes('instruct') && !m.id.includes('realtime')
+          && !m.id.includes('audio') && !m.id.includes('tts')
+          && !m.id.includes('whisper') && !m.id.includes('dall')
+          && !m.id.includes('embedding') && !m.id.includes('search')
+          && !m.id.includes('babbage') && !m.id.includes('davinci'))
+        .sort((a, b) => b.created - a.created)
+        .map(m => ({ id: m.id, label: m.id }));
+      models = chatModels.length ? chatModels : PROVIDER_DEFAULTS.openai.models;
+    } else if (p === 'google') {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}&pageSize=100`);
+      if (!res.ok) throw new Error(`Google ${res.status}`);
+      const data = await res.json();
+      models = (data.models || [])
+        .filter(m => m.supportedGenerationMethods?.includes('generateContent'))
+        .map(m => ({
+          id: m.name.replace('models/', ''),
+          label: m.displayName || m.name.replace('models/', ''),
+        }))
+        .sort((a, b) => a.id.localeCompare(b.id));
+      if (!models.length) models = PROVIDER_DEFAULTS.google.models;
+    }
+
+    currentModelList[p] = models;
+    rebuildModelSelect(p, getEffectiveModel());
+    showToast(`${models.length}件のモデルを取得しました`);
+  } catch (e) {
+    showToast('取得失敗: ' + e.message.slice(0, 60));
+  } finally {
+    btn.textContent = '🔄 一覧を取得';
+    btn.disabled = false;
+  }
+}
+
+function openSettings() {
+  loadSettings();
+  const firstTabBtn = document.querySelector('.tab-btn-settings');
+  if (firstTabBtn) {
+    switchSettingsTab('llmTab', firstTabBtn);
+  }
+  document.getElementById('settingsModal').classList.add('open');
+}
+
+function switchSettingsTab(tabId, btn) {
+  const contents = document.querySelectorAll('.tab-content-settings');
+  contents.forEach(c => c.classList.remove('active'));
+  const btns = document.querySelectorAll('.tab-btn-settings');
+  btns.forEach(b => b.classList.remove('active'));
+  document.getElementById(tabId).classList.add('active');
+  btn.classList.add('active');
+}
+
+function closeSettings() {
+  document.getElementById('settingsModal').classList.remove('open');
+}
+
+document.getElementById('settingsModal').addEventListener('click', function(e) {
+  if (e.target === this) closeSettings();
+});
+
+function updateFooterLabels() {
+  const s = getSettings();
+  document.getElementById('providerLabel').textContent = s.provider || 'openai';
+  document.getElementById('modelLabel').textContent = s.model || PROVIDER_DEFAULTS.openai.model;
+}
+
+// ───────────────────────────────────────────────
+// LLM CALLS
+// ───────────────────────────────────────────────
+async function callLLM(text) {
+  const s = getSettings();
+  const provider = s.provider || 'openai';
+  const model = s.model || PROVIDER_DEFAULTS[provider].model;
+  let systemPrompt = s.systemPrompt || DEFAULT_SYSTEM_PROMPT;
+
+  // ユーザー辞書が設定されていれば、プロンプトの最後に追加
+  const dict = s.userDictionary || '';
+  if (dict.trim()) {
+    const lines = dict.split('\n')
+      .map(line => line.trim())
+      .filter(line => line && line.includes(':'));
+    if (lines.length > 0) {
+      systemPrompt += '\n\n【固有名詞・単語の固定辞書（最優先ルール）】';
+      systemPrompt += '\n以下のローマ字入力パターン（左）は、右側の日本語に必ずマッピングして変換してください。入力が曖昧・タイポであっても、この辞書マッピングを最優先します。';
+      lines.forEach(l => {
+        systemPrompt += `\n- ${l}`;
+      });
+    }
+  }
+
+  let apiKey = '';
+  if (provider !== 'ollama') {
+    apiKey = await getApiKey();
+  }
+
+  switch (provider) {
+    case 'openai':    return await callOpenAI(text, model, apiKey, systemPrompt);
+    case 'anthropic': return await callAnthropic(text, model, apiKey, systemPrompt);
+    case 'google':    return await callGoogle(text, model, apiKey, systemPrompt);
+    case 'ollama':    return await callOllama(text, model, s.ollamaUrl || 'http://localhost:11434', systemPrompt);
+    default: throw new Error('Unknown provider: ' + provider);
+  }
+}
+
+async function callOpenAI(text, model, apiKey, systemPrompt) {
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: text },
+      ],
+      max_tokens: 2048,
+      temperature: 0.2,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || `OpenAI ${res.status}`);
+  }
+  const data = await res.json();
+  return data.choices[0].message.content.trim();
+}
+
+async function callAnthropic(text, model, apiKey, systemPrompt) {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 2048,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: text }],
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || `Anthropic ${res.status}`);
+  }
+  const data = await res.json();
+  return data.content[0].text.trim();
+}
+
+async function callGoogle(text, model, apiKey, systemPrompt) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: systemPrompt }] },
+      contents: [{ parts: [{ text }] }],
+      generationConfig: { temperature: 0.2, maxOutputTokens: 2048 },
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || `Google ${res.status}`);
+  }
+  const data = await res.json();
+  return data.candidates[0].content.parts[0].text.trim();
+}
+
+async function callOllama(text, model, baseUrl, systemPrompt) {
+  const url = `${baseUrl.replace(/\/$/, '')}/api/chat`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model,
+      stream: false,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: text },
+      ],
+      options: { temperature: 0.2 },
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.text().catch(() => '');
+    throw new Error(`Ollama ${res.status}: ${err.slice(0, 100)}`);
+  }
+  const data = await res.json();
+  return data.message.content.trim();
+}
+
+// ───────────────────────────────────────────────
+// CONVERSION
+// ───────────────────────────────────────────────
+async function convertNow() {
+  const inputArea = document.getElementById('inputArea');
+  const sentText = inputArea.value.trim();
+  if (!sentText || isConverting) return;
+
+  // 送信時点のテキストを記録（変換中に追加入力されても区別できるよう）
+  const sentRaw = inputArea.value; // trim前の生テキスト（改行含む）
+
+  isConverting = true;
+  setStatus('converting', '変換中...');
+
+  try {
+    const result = await callLLM(sentText);
+    const outArea = document.getElementById('outputArea');
+    // 既存テキストに追記（空なら置換）
+    const existing = outArea.value;
+    if (existing && !existing.endsWith('\n')) {
+      outArea.value = existing + '\n' + result;
+    } else {
+      outArea.value = existing + result;
+    }
+    outArea.scrollTop = outArea.scrollHeight;
+
+    // 履歴追加
+    addHistory(sentText, result);
+
+    // 送信済みテキストだけ除去 — 変換中に追加入力された文字は残す
+    const current = inputArea.value;
+    if (current.startsWith(sentRaw)) {
+      // 送信テキストの後に追加入力がある場合、それだけ残す
+      inputArea.value = current.slice(sentRaw.length).replace(/^\n/, '');
+    } else {
+      // 稀なケース（ユーザーが編集した等）: sentTextが前方一致しない場合は全クリア
+      inputArea.value = '';
+    }
+
+    conversionCount++;
+    setStatus('ok', '変換完了');
+    updateStats();
+  } catch (e) {
+    setStatus('err', 'エラー: ' + e.message.slice(0, 40));
+    showToast('⚠ ' + e.message.slice(0, 80));
+  } finally {
+    isConverting = false;
+    setTimeout(() => {
+      if (!isConverting) setStatus('idle', '待機中');
+    }, 3000);
+  }
+}
+
+// ───────────────────────────────────────────────
+// INPUT HANDLER
+// ───────────────────────────────────────────────
+document.getElementById('inputArea').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    convertNow();
+  }
+  // Ctrl+Z undo は textarea デフォルト動作に任せる
+});
+
+document.getElementById('inputArea').addEventListener('input', updateStats);
+document.getElementById('outputArea').addEventListener('input', updateStats);
+
+// ───────────────────────────────────────────────
+// HISTORY
+// ───────────────────────────────────────────────
+function addHistory(romaji, japanese) {
+  const item = {
+    romaji,
+    japanese,
+    time: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
+  };
+  conversionHistory.unshift(item);
+  if (conversionHistory.length > 100) conversionHistory.pop();
+  renderHistory();
+}
+
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  list.innerHTML = conversionHistory.map((h, i) => `
+    <div class="history-item" onclick="insertHistory(${i})">
+      <div class="hi-jp">${escHtml(h.japanese.slice(0, 60))}${h.japanese.length > 60 ? '…' : ''}</div>
+      <div class="hi-rom">${escHtml(h.romaji.slice(0, 50))}</div>
+      <div class="hi-time">${h.time}</div>
+    </div>
+  `).join('');
+}
+
+function insertHistory(idx) {
+  const h = conversionHistory[idx];
+  if (!h) return;
+  const out = document.getElementById('outputArea');
+  const existing = out.value;
+  out.value = existing ? existing + '\n' + h.japanese : h.japanese;
+  out.scrollTop = out.scrollHeight;
+  updateStats();
+}
+
+function toggleHistory() {
+  historyOpen = !historyOpen;
+  document.getElementById('historyPanel').classList.toggle('open', historyOpen);
+}
+
+// ───────────────────────────────────────────────
+// TOOLBAR ACTIONS
+// ───────────────────────────────────────────────
+function changeFontSize(delta) {
+  fontSize = Math.max(10, Math.min(28, fontSize + delta));
+  document.getElementById('inputArea').style.fontSize = fontSize + 'px';
+  document.getElementById('outputArea').style.fontSize = fontSize + 'px';
+  document.getElementById('fontSizeLabel').textContent = fontSize + 'px';
+}
+
+function toggleWordWrap() {
+  wordWrap = !wordWrap;
+  const wrap = wordWrap ? 'soft' : 'off';
+  document.getElementById('inputArea').setAttribute('wrap', wrap);
+  document.getElementById('outputArea').setAttribute('wrap', wrap);
+  document.getElementById('inputArea').style.whiteSpace = wordWrap ? 'pre-wrap' : 'pre';
+  document.getElementById('outputArea').style.whiteSpace = wordWrap ? 'pre-wrap' : 'pre';
+  document.getElementById('wrapBtn').classList.toggle('active', wordWrap);
+}
+
+function clearInput() {
+  document.getElementById('inputArea').value = '';
+  updateStats();
+}
+
+function copyOutput() {
+  const text = document.getElementById('outputArea').value;
+  if (!text) return showToast('コピーするテキストがありません');
+  navigator.clipboard.writeText(text).then(() => showToast('クリップボードにコピーしました'));
+}
+
+function saveOutput() {
+  const text = document.getElementById('outputArea').value;
+  if (!text) return showToast('保存するテキストがありません');
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const ts = new Date().toISOString().slice(0,16).replace('T','_').replace(':','-');
+  a.download = `romaji_output_${ts}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('ファイルを保存しました');
+}
+
+function toggleOutputEdit() {
+  outputEditable = !outputEditable;
+  const out = document.getElementById('outputArea');
+  out.readOnly = !outputEditable;
+  out.classList.toggle('editable', outputEditable);
+  document.getElementById('editOutputBtn').classList.toggle('active', outputEditable);
+  document.getElementById('editOutputBtn').textContent = outputEditable ? '🔒 固定' : '✏ 編集';
+}
+
+// ───────────────────────────────────────────────
+// STATUS / STATS
+// ───────────────────────────────────────────────
+function setStatus(state, text) {
+  const dot = document.getElementById('statusDot');
+  dot.className = 'status-dot ' + state;
+  document.getElementById('statusText').textContent = text;
+}
+
+function updateStats() {
+  const inLen = document.getElementById('inputArea').value.length;
+  const outLen = document.getElementById('outputArea').value.length;
+  document.getElementById('inputStats').textContent = `入力: ${inLen}文字`;
+  document.getElementById('outputStats').textContent = `出力: ${outLen}文字`;
+  document.getElementById('convCount').textContent = `変換: ${conversionCount}回`;
+}
+
+// ───────────────────────────────────────────────
+// DIVIDER DRAG (リサイズ)
+// ───────────────────────────────────────────────
+(function() {
+  const divider = document.getElementById('divider');
+  const editors = document.getElementById('editors');
+  const leftPane = document.getElementById('leftPane');
+  const rightPane = document.getElementById('rightPane');
+  let dragging = false;
+
+  divider.addEventListener('mousedown', function(e) {
+    dragging = true;
+    const isVertical = editors.classList.contains('vertical') || editors.classList.contains('vertical-reverse');
+    document.body.style.cursor = isVertical ? 'row-resize' : 'col-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', function(e) {
+    if (!dragging) return;
+    const isVertical = editors.classList.contains('vertical');
+    const isVerticalRev = editors.classList.contains('vertical-reverse');
+    const isHorizontalRev = editors.classList.contains('horizontal-reverse');
+    const rect = editors.getBoundingClientRect();
+    
+    if (isVertical) {
+      const divH = divider.offsetHeight;
+      const total = rect.height - divH;
+      const leftH = Math.max(100, Math.min(total - 100, e.clientY - rect.top));
+      leftPane.style.flex = 'none';
+      leftPane.style.height = leftH + 'px';
+      rightPane.style.flex = '1';
+    } else if (isVerticalRev) {
+      const divH = divider.offsetHeight;
+      const total = rect.height - divH;
+      const leftH = Math.max(100, Math.min(total - 100, rect.bottom - e.clientY));
+      leftPane.style.flex = 'none';
+      leftPane.style.height = leftH + 'px';
+      rightPane.style.flex = '1';
+    } else if (isHorizontalRev) {
+      const divW = divider.offsetWidth;
+      const total = rect.width - divW;
+      const leftW = Math.max(200, Math.min(total - 200, rect.right - e.clientX));
+      leftPane.style.flex = 'none';
+      leftPane.style.width = leftW + 'px';
+      rightPane.style.flex = '1';
+    } else {
+      // horizontal
+      const divW = divider.offsetWidth;
+      const total = rect.width - divW;
+      const leftW = Math.max(200, Math.min(total - 200, e.clientX - rect.left));
+      leftPane.style.flex = 'none';
+      leftPane.style.width = leftW + 'px';
+      rightPane.style.flex = '1';
+    }
+  });
+
+  document.addEventListener('mouseup', function() {
+    if (dragging) {
+      dragging = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+  });
+})();
+
+// ───────────────────────────────────────────────
+// CRYPTO HELPERS & DECRYPT MODAL
+// ───────────────────────────────────────────────
+let decryptedApiKey = '';
+let passwordResolve = null;
+
+async function deriveKey(password, salt) {
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(password),
+    { name: "PBKDF2" },
+    false,
+    ["deriveBits", "deriveKey"]
+  );
+  return crypto.subtle.deriveKey(
+    {
+      name: "PBKDF2",
+      salt: salt,
+      iterations: 100000,
+      hash: "SHA-256"
+    },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"]
+  );
+}
+
+async function encryptData(plaintext, password) {
+  const enc = new TextEncoder();
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveKey(password, salt);
+  
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv: iv },
+    key,
+    enc.encode(plaintext)
+  );
+
+  return {
+    ciphertext: btoa(String.fromCharCode(...new Uint8Array(ciphertext))),
+    salt: btoa(String.fromCharCode(...salt)),
+    iv: btoa(String.fromCharCode(...iv))
+  };
+}
+
+async function decryptData(encryptedObj, password) {
+  const dec = new TextDecoder();
+  const salt = new Uint8Array(atob(encryptedObj.salt).split("").map(c => c.charCodeAt(0)));
+  const iv = new Uint8Array(atob(encryptedObj.iv).split("").map(c => c.charCodeAt(0)));
+  const ciphertext = new Uint8Array(atob(encryptedObj.ciphertext).split("").map(c => c.charCodeAt(0)));
+  
+  const key = await deriveKey(password, salt);
+  try {
+    const decrypted = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: iv },
+      key,
+      ciphertext
+    );
+    return dec.decode(decrypted);
+  } catch (e) {
+    throw new Error("パスワードが正しくありません");
+  }
+}
+
+function showPasswordPrompt() {
+  return new Promise((resolve) => {
+    document.getElementById('decryptPasswordInput').value = '';
+    document.getElementById('passwordModal').classList.add('open');
+    document.getElementById('decryptPasswordInput').focus();
+    passwordResolve = resolve;
+  });
+}
+
+function submitDecryptPassword() {
+  const pw = document.getElementById('decryptPasswordInput').value;
+  if (!pw) return;
+  document.getElementById('passwordModal').classList.remove('open');
+  if (passwordResolve) {
+    passwordResolve(pw);
+    passwordResolve = null;
+  }
+}
+
+document.getElementById('decryptPasswordInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    submitDecryptPassword();
+  }
+});
+
+async function getApiKey() {
+  const s = getSettings();
+  if (!s.apiKey) return '';
+  
+  if (s.isEncrypted) {
+    if (decryptedApiKey) return decryptedApiKey;
+    
+    while (true) {
+      const pw = await showPasswordPrompt();
+      try {
+        decryptedApiKey = await decryptData(s.apiKey, pw);
+        return decryptedApiKey;
+      } catch (e) {
+        showToast('パスワードが違います。再入力してください。');
+      }
+    }
+  } else {
+    return s.apiKey;
+  }
+}
+
+// ───────────────────────────────────────────────
+// UTILS
+// ───────────────────────────────────────────────
+function showToast(msg, duration = 2500) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(() => t.classList.remove('show'), duration);
+}
+
+function copyCmd(elemId) {
+  const text = document.getElementById(elemId).textContent;
+  navigator.clipboard.writeText(text).then(() => showToast('コピーしました: ' + text));
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ───────────────────────────────────────────────
+// KEYBOARD SHORTCUTS
+// ───────────────────────────────────────────────
+document.addEventListener('keydown', function(e) {
+  // Ctrl+, で設定
+  if (e.ctrlKey && e.key === ',') { e.preventDefault(); openSettings(); }
+  // Ctrl+Shift+H で履歴
+  if (e.ctrlKey && e.shiftKey && e.key === 'H') { e.preventDefault(); toggleHistory(); }
+  // Escape で閉じる
+  if (e.key === 'Escape') { closeSettings(); if (historyOpen) toggleHistory(); }
+});
+
+// ───────────────────────────────────────────────
+// INIT
+// ───────────────────────────────────────────────
+(async function init() {
+  loadSettings();
+  updateStats();
+  setStatus('idle', '待機中');
+  document.getElementById('wrapBtn').classList.add('active');
+
+  // 暗号化されたAPIキーがある場合、起動時にパスワードを求めて復号
+  const s = getSettings();
+  if (s.isEncrypted && s.apiKey && s.provider !== 'ollama') {
+    await getApiKey();
+  }
+
+  // 初回起動チェック
+  if (!s.provider) {
+    setTimeout(openSettings, 500);
+  }
+})();
+</script>
+</body>
+</html>

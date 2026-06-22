@@ -1,0 +1,19 @@
+# Build artifacts
+cppver/build/
+cppver/build-mingw/
+cppver/.agents/
+
+# Electron
+winver/node_modules/
+winver/dist/
+
+# Zip distribution files
+*.zip
+
+# IDE / OS
+.vscode/
+*.suo
+*.user
+*.sln.docstates
+Thumbs.db
+.DS_Store
